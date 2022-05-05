@@ -24,7 +24,19 @@ struct list_head *q_new()
 }
 
 /* Free all storage used by queue */
-void q_free(struct list_head *l) {}
+void q_free(struct list_head *l)
+{
+    /*
+    if (!l)
+        return;
+    if(q_size(l)==0)
+        free(l);
+    struct list_head *node = l;
+    element_t *elePtr;
+    do {
+    }while();
+    */
+}
 
 /* Insert an element at head of queue */
 bool q_insert_head(struct list_head *head, char *s)
@@ -54,19 +66,67 @@ bool q_insert_head(struct list_head *head, char *s)
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
+
+    element_t *insertH = (element_t *) malloc(sizeof(element_t));
+    if (!insertH)
+        return false;
+    size_t sSize = strlen(s) + 1;
+    insertH->value = (char *) malloc(sSize);
+    if (!insertH->value) {
+        free(insertH);
+        return false;
+    }
+    strncpy(insertH->value, s, sSize);
+    struct list_head *tmp = head->prev;
+    head->prev = &insertH->list;
+    insertH->list.next = head;
+    insertH->list.prev = tmp;
+    tmp->next = &insertH->list;
+
     return true;
 }
 
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    return NULL;
+    if (q_size(head) == 0)
+        return NULL;
+    struct list_head *delL = head->next;
+    head->next = delL->next;
+    (delL->next)->prev = head;
+    element_t *delE = container_of(delL, element_t, list);
+    if (delE->value && sp) {
+        size_t sSize = strlen(delE->value) + 1;
+        if (sSize > bufsize) {
+            strncpy(sp, delE->value, bufsize);
+            sp[bufsize - 1] = '\0';
+        } else
+            strncpy(sp, delE->value, sSize);
+    }
+
+    return delE;
 }
 
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    return NULL;
+    if (q_size(head) == 0)
+        return NULL;
+    struct list_head *delL = head->prev;
+    head->prev = delL->prev;
+    (delL->prev)->next = head;
+    element_t *delE = container_of(delL, element_t, list);
+    if (delE->value && sp) {
+        size_t sSize = strlen(delE->value) + 1;
+        if (sSize > bufsize) {
+            strncpy(sp, delE->value, bufsize);
+            sp[bufsize - 1] = '\0';
+        } else
+            strncpy(sp, delE->value, sSize);
+    }
+    return delE;
 }
 
 /* Return number of elements in queue */
