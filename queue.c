@@ -10,6 +10,11 @@
  *   cppcheck-suppress nullPointer
  */
 
+static struct list_head *merge(struct list_head *l1, struct list_head *l2);
+
+static struct list_head *mergesort(struct list_head *head);
+
+static void mergefinal(struct list_head *head, struct list_head *sortHead);
 
 /* Create an empty queue */
 struct list_head *q_new()
@@ -28,11 +33,11 @@ void q_free(struct list_head *l)
 {
     if (!l)
         return;
-    while (l->next != l) {
-        element_t *tmp = container_of(l->next, element_t, list);
-        l->next = l->next->next;
-        if (tmp->value)
-            free(tmp->value);
+    struct list_head *cur = l->next;
+    while (cur != l) {
+        element_t *tmp = container_of(cur, element_t, list);
+        cur = cur->next;
+        free(tmp->value);
         free(tmp);
     }
     free(l);
@@ -172,24 +177,33 @@ bool q_delete_dup(struct list_head *head)
     else if (head->next == head)
         return true;
     struct list_head *ptrL = head->next, *prevL = head;
-    while (ptrL->next != head) {
+    while (ptrL != head && ptrL->next != head) {
         struct list_head *nextL = ptrL->next;
         element_t *e1 = container_of(ptrL, element_t, list);
         element_t *e2 = container_of(nextL, element_t, list);
         if (strcmp(e1->value, e2->value) == 0) {
-            char *str = e1->value;
-            free(e1->value);
-            free(e1);
-            while (strcmp(str, e2->value) == 0) {
+            // char *str = e1->value; //when free(e1->val) str would cause
+            // problems
+            while (strcmp(e1->value, e2->value) == 0) {
                 nextL = nextL->next;
                 free(e2->value);
                 free(e2);
-                e2 = container_of(nextL, element_t, list);
+                if (nextL == head)
+                    break;
+                else
+                    e2 = container_of(nextL, element_t, list);
             }
+            free(e1->value);
+            free(e1);
             prevL->next = nextL;
+            nextL->prev = prevL;
+            // prevL = prevL->next;
+            ptrL = nextL;
         } else {
-            prevL->next = nextL;
+            prevL->next = ptrL;
+            ptrL->prev = prevL;
             prevL = prevL->next;
+            ptrL = ptrL->next;
         }
     }
     return true;
@@ -201,13 +215,16 @@ void q_swap(struct list_head *head)
     if (!head || head->next == head)
         return;
     struct list_head *ptrL = head->next, *prevL = head;
-    while (ptrL->next != head) {
-        struct list_head *tmp = ptrL;
-        ptrL = ptrL->next->next;
-        prevL->next = tmp->next;
-        prevL->next->next = tmp;
-        prevL = prevL->next->next;
-        prevL->next = ptrL;
+    while (ptrL != head && ptrL->next != head) {
+        prevL->next = ptrL->next;
+        ptrL->next->prev = prevL;
+        ptrL->next = ptrL->next->next;
+        ptrL->next->prev = ptrL;
+        prevL->next->next = ptrL;
+        ptrL->prev = prevL->next;
+        // renew 2 pointer
+        prevL = ptrL;
+        ptrL = ptrL->next;
     }
     // https://leetcode.com/problems/swap-nodes-in-pairs/
 }
@@ -215,6 +232,8 @@ void q_swap(struct list_head *head)
 /* Reverse elements in queue */
 void q_reverse(struct list_head *head)
 {
+    if (!head || head->next == head)
+        return;
     struct list_head *node, *tmp;
     tmp = head->next;
     head->next = head->prev;
@@ -226,29 +245,65 @@ void q_reverse(struct list_head *head)
     }
 }
 
+static struct list_head *merge(struct list_head *l1, struct list_head *l2)
+{
+    struct list_head *ret = NULL, **cur = &ret;
+    element_t *E1 = container_of(l1, element_t, list);
+    element_t *E2 = container_of(l2, element_t, list);
+    for (; l1 && l2; cur = &(*cur)->next) {
+        if (strcmp(E1->value, E2->value) < 0) {
+            *cur = l1;
+            l1 = l1->next;
+            E1 = container_of(l1, element_t, list);
+        } else {
+            *cur = l2;
+            l2 = l2->next;
+            E2 = container_of(l2, element_t, list);
+        }
+    }
+    if (l1)
+        *cur = l1;
+    else
+        *cur = l2;
+    return ret;
+}
+
+static struct list_head *mergesort(struct list_head *head)
+{
+    if (head->next == NULL)
+        return head;
+    struct list_head *fast = head->next, *slow = head, *l, *r;
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+    }
+    r = mergesort(slow->next);
+    slow->next = NULL;
+    l = mergesort(head);
+    return merge(l, r);
+}
+
+static void mergefinal(struct list_head *head, struct list_head *sortHead)
+{
+    struct list_head *prev = sortHead, *cur;
+    for (cur = sortHead->next; cur; cur = cur->next) {
+        prev->next = cur;
+        cur->prev = prev;
+        prev = prev->next;
+    }
+    head->next = sortHead;
+    sortHead->prev = head;
+    head->prev = prev;
+    prev->next = head;
+}
+
 /* Sort elements of queue in ascending order */
 void q_sort(struct list_head *head)
 {
     if (!head || head->next == head)
         return;
-
-    // int size = q_size(head);
-    struct list_head *ptrL, *endL = head;
-    while (endL != head->next) {
-        element_t *maxE = container_of(endL->prev, element_t, list);
-        for (ptrL = head->next; ptrL != endL; ptrL = ptrL->next) {
-            element_t *curE = container_of(ptrL, element_t, list);
-            if (strcmp(curE->value, maxE->value) > 0) {
-                maxE = curE;
-            }
-        }
-        maxE->list.prev->next = maxE->list.next;
-        maxE->list.next->prev = maxE->list.prev;
-        struct list_head *tmp = endL->prev;
-        endL->prev = &maxE->list;
-        maxE->list.next = endL;
-        maxE->list.prev = tmp;
-        tmp->next = &maxE->list;
-        endL = &maxE->list;
-    }
+    struct list_head *headL = head->next;
+    head->prev->next = NULL;
+    headL = mergesort(headL);
+    mergefinal(head, headL);
 }
