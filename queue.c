@@ -144,6 +144,22 @@ int q_size(struct list_head *head)
 /* Delete the middle node in queue */
 bool q_delete_mid(struct list_head *head)
 {
+    if (!head || head->next == head)
+        return false;
+    struct list_head *slow = head, *fast = head, *prevL;
+    do {
+        prevL = slow;
+        slow = slow->next;
+        fast = fast->next;
+        if (fast != head)
+            fast = fast->next;
+    } while (fast != head);
+    prevL->next = slow->next;
+    slow->prev = prevL;
+    element_t *delE = container_of(prevL, element_t, list);
+    if (delE->value)
+        free(delE->value);
+    free(delE);
     // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
     return true;
 }
@@ -151,13 +167,48 @@ bool q_delete_mid(struct list_head *head)
 /* Delete all nodes that have duplicate string */
 bool q_delete_dup(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    if (head == NULL)
+        return false;
+    else if (head->next == head)
+        return true;
+    struct list_head *ptrL = head->next, *prevL = head;
+    while (ptrL->next != head) {
+        struct list_head *nextL = ptrL->next;
+        element_t *e1 = container_of(ptrL, element_t, list);
+        element_t *e2 = container_of(nextL, element_t, list);
+        if (strcmp(e1->value, e2->value) == 0) {
+            char *str = e1->value;
+            free(e1->value);
+            free(e1);
+            while (strcmp(str, e2->value) == 0) {
+                nextL = nextL->next;
+                free(e2->value);
+                free(e2);
+                e2 = container_of(nextL, element_t, list);
+            }
+            prevL->next = nextL;
+        } else {
+            prevL->next = nextL;
+            prevL = prevL->next;
+        }
+    }
     return true;
 }
 
 /* Swap every two adjacent nodes */
 void q_swap(struct list_head *head)
 {
+    if (!head || head->next == head)
+        return;
+    struct list_head *ptrL = head->next, *prevL = head;
+    while (ptrL->next != head) {
+        struct list_head *tmp = ptrL;
+        ptrL = ptrL->next->next;
+        prevL->next = tmp->next;
+        prevL->next->next = tmp;
+        prevL = prevL->next->next;
+        prevL->next = ptrL;
+    }
     // https://leetcode.com/problems/swap-nodes-in-pairs/
 }
 
