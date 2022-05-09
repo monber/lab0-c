@@ -155,8 +155,8 @@ bool q_delete_mid(struct list_head *head)
             fast = fast->next;
     } while (fast != head);
     prevL->next = slow->next;
-    slow->prev = prevL;
-    element_t *delE = container_of(prevL, element_t, list);
+    slow->next->prev = prevL;
+    element_t *delE = container_of(slow, element_t, list);
     if (delE->value)
         free(delE->value);
     free(delE);
@@ -227,4 +227,28 @@ void q_reverse(struct list_head *head)
 }
 
 /* Sort elements of queue in ascending order */
-void q_sort(struct list_head *head) {}
+void q_sort(struct list_head *head)
+{
+    if (!head || head->next == head)
+        return;
+
+    // int size = q_size(head);
+    struct list_head *ptrL, *endL = head;
+    while (endL != head->next) {
+        element_t *maxE = container_of(endL->prev, element_t, list);
+        for (ptrL = head->next; ptrL != endL; ptrL = ptrL->next) {
+            element_t *curE = container_of(ptrL, element_t, list);
+            if (strcmp(curE->value, maxE->value) > 0) {
+                maxE = curE;
+            }
+        }
+        maxE->list.prev->next = maxE->list.next;
+        maxE->list.next->prev = maxE->list.prev;
+        struct list_head *tmp = endL->prev;
+        endL->prev = &maxE->list;
+        maxE->list.next = endL;
+        maxE->list.prev = tmp;
+        tmp->next = &maxE->list;
+        endL = &maxE->list;
+    }
+}
