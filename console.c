@@ -656,3 +656,4 @@ bool run_console(char *infile_name)
 
     return err_cnt == 0;
 }
+

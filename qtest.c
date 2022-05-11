@@ -72,6 +72,7 @@ static const char charset[] = "abcdefghijklmnopqrstuvwxyz";
 
 /* Forward declarations */
 static bool show_queue(int vlevel);
+bool do_hello(int argc, char *argv[]);
 
 static bool do_free(int argc, char *argv[])
 {
@@ -846,6 +847,7 @@ static void console_init()
               NULL);
     add_param("fail", &fail_limit,
               "Number of times allow queue operations to return false", NULL);
+    add_cmd("hello", do_hello, "                | Print hello message");
 }
 
 /* Signal handlers */
@@ -1013,4 +1015,9 @@ int main(int argc, char *argv[])
     ok = finish_cmd() && ok;
 
     return !ok;
+}
+
+bool do_hello(int argc, char *argv[])
+{
+    return (bool) printf("Hello, World\n");
 }
