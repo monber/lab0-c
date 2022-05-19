@@ -21,10 +21,8 @@ struct list_head *q_new()
 {
     struct list_head *new =
         (struct list_head *) malloc(sizeof(struct list_head));
-    if (!new)
-        return NULL;
-    new->next = new;
-    new->prev = new;
+    if (new)
+        INIT_LIST_HEAD(new);
     return new;
 }
 
@@ -37,8 +35,7 @@ void q_free(struct list_head *l)
     while (cur != l) {
         element_t *tmp = container_of(cur, element_t, list);
         cur = cur->next;
-        free(tmp->value);
-        free(tmp);
+        q_release_element(tmp);
     }
     free(l);
 }
@@ -48,21 +45,17 @@ bool q_insert_head(struct list_head *head, char *s)
     if (!head)
         return false;
 
-    element_t *insertH = (element_t *) malloc(sizeof(element_t));
-    if (!insertH)
+    element_t *newE = (element_t *) malloc(sizeof(element_t));
+    if (!newE)
         return false;
     size_t sSize = strlen(s) + 1;
-    insertH->value = (char *) malloc(sSize);
-    if (!insertH->value) {
-        free(insertH);
+    newE->value = (char *) malloc(sSize);
+    if (!newE->value) {
+        free(newE);
         return false;
     }
-    strncpy(insertH->value, s, sSize);
-    struct list_head *tmp = head->next;
-    head->next = &insertH->list;
-    insertH->list.next = tmp;
-    insertH->list.prev = head;
-    tmp->prev = &insertH->list;
+    strncpy(newE->value, s, sSize);
+    list_add(&newE->list, head);
 
     return true;
 }
@@ -73,21 +66,17 @@ bool q_insert_tail(struct list_head *head, char *s)
     if (!head)
         return false;
 
-    element_t *insertH = (element_t *) malloc(sizeof(element_t));
-    if (!insertH)
+    element_t *newE = (element_t *) malloc(sizeof(element_t));
+    if (!newE)
         return false;
     size_t sSize = strlen(s) + 1;
-    insertH->value = (char *) malloc(sSize);
-    if (!insertH->value) {
-        free(insertH);
+    newE->value = (char *) malloc(sSize);
+    if (!newE->value) {
+        free(newE);
         return false;
     }
-    strncpy(insertH->value, s, sSize);
-    struct list_head *tmp = head->prev;
-    head->prev = &insertH->list;
-    insertH->list.next = head;
-    insertH->list.prev = tmp;
-    tmp->next = &insertH->list;
+    strncpy(newE->value, s, sSize);
+    list_add_tail(&newE->list, head);
 
     return true;
 }
@@ -95,19 +84,14 @@ bool q_insert_tail(struct list_head *head, char *s)
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || head->next == head)
+    if (!head || list_empty(head))
         return NULL;
     struct list_head *delL = head->next;
-    head->next = delL->next;
-    (delL->next)->prev = head;
+    list_del(delL);
     element_t *delE = container_of(delL, element_t, list);
     if (delE->value && sp) {
-        size_t sSize = strlen(delE->value) + 1;
-        if (sSize > bufsize) {
-            strncpy(sp, delE->value, bufsize);
-            sp[bufsize - 1] = '\0';
-        } else
-            strncpy(sp, delE->value, sSize);
+        strncpy(sp, delE->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
     }
 
     return delE;
@@ -116,19 +100,14 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || head->next == head)
+    if (!head || list_empty(head))
         return NULL;
     struct list_head *delL = head->prev;
-    head->prev = delL->prev;
-    (delL->prev)->next = head;
+    list_del(delL);
     element_t *delE = container_of(delL, element_t, list);
     if (delE->value && sp) {
-        size_t sSize = strlen(delE->value) + 1;
-        if (sSize > bufsize) {
-            strncpy(sp, delE->value, bufsize);
-            sp[bufsize - 1] = '\0';
-        } else
-            strncpy(sp, delE->value, sSize);
+        strncpy(sp, delE->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
     }
     return delE;
 }
@@ -149,62 +128,42 @@ int q_size(struct list_head *head)
 /* Delete the middle node in queue */
 bool q_delete_mid(struct list_head *head)
 {
-    if (!head || head->next == head)
+    // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
+
+    if (!head || list_empty(head))
         return false;
-    struct list_head *slow = head, *fast = head, *prevL;
-    do {
-        prevL = slow;
+    struct list_head *slow = head->next, *fast = slow->next;
+    while (slow != head && fast != head) {
         slow = slow->next;
         fast = fast->next;
         if (fast != head)
             fast = fast->next;
-    } while (fast != head);
-    prevL->next = slow->next;
-    slow->next->prev = prevL;
-    element_t *delE = container_of(slow, element_t, list);
-    if (delE->value)
-        free(delE->value);
-    free(delE);
-    // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
+    }
+    list_del(slow);
+    q_release_element(container_of(slow, element_t, list));
     return true;
 }
 
 /* Delete all nodes that have duplicate string */
 bool q_delete_dup(struct list_head *head)
 {
-    if (head == NULL)
+    if (!head)
         return false;
-    else if (head->next == head)
+    else if (list_empty(head))
         return true;
-    struct list_head *ptrL = head->next, *prevL = head;
-    while (ptrL != head && ptrL->next != head) {
-        struct list_head *nextL = ptrL->next;
-        element_t *e1 = container_of(ptrL, element_t, list);
-        element_t *e2 = container_of(nextL, element_t, list);
-        if (strcmp(e1->value, e2->value) == 0) {
-            // char *str = e1->value; //when free(e1->val) str would cause
-            // problems
-            while (strcmp(e1->value, e2->value) == 0) {
-                nextL = nextL->next;
-                free(e2->value);
-                free(e2);
-                if (nextL == head)
-                    break;
-                else
-                    e2 = container_of(nextL, element_t, list);
-            }
-            free(e1->value);
-            free(e1);
-            prevL->next = nextL;
-            nextL->prev = prevL;
-            // prevL = prevL->next;
-            ptrL = nextL;
-        } else {
-            prevL->next = ptrL;
-            ptrL->prev = prevL;
-            prevL = prevL->next;
-            ptrL = ptrL->next;
+    element_t *ptr, *next;
+    bool check, checkpre = false;
+    list_for_each_entry_safe (ptr, next, head, list) {
+        if (&next->list != head && strcmp(ptr->value, next->value) == 0)
+            check = true;
+        else
+            check = false;
+
+        if (check | checkpre) {
+            list_del(&ptr->list);
+            q_release_element(ptr);
         }
+        checkpre = check;
     }
     return true;
 }
@@ -212,36 +171,26 @@ bool q_delete_dup(struct list_head *head)
 /* Swap every two adjacent nodes */
 void q_swap(struct list_head *head)
 {
-    if (!head || head->next == head)
+    if (!head || list_empty(head))
         return;
-    struct list_head *ptrL = head->next, *prevL = head;
-    while (ptrL != head && ptrL->next != head) {
-        prevL->next = ptrL->next;
-        ptrL->next->prev = prevL;
-        ptrL->next = ptrL->next->next;
-        ptrL->next->prev = ptrL;
-        prevL->next->next = ptrL;
-        ptrL->prev = prevL->next;
+    struct list_head *ptrL = head->next, *nextL = ptrL->next;
+    for (; ptrL != head && nextL != head;
+         ptrL = ptrL->next, nextL = ptrL->next) {
+        list_move(ptrL, nextL);
         // renew 2 pointer
-        prevL = ptrL;
-        ptrL = ptrL->next;
+        // ptrL = ptrL->next;
+        // nextL = ptrL->next;
     }
-    // https://leetcode.com/problems/swap-nodes-in-pairs/
 }
 
-/* Reverse elements in queue */
+/* Reverse queue */
 void q_reverse(struct list_head *head)
 {
-    if (!head || head->next == head)
+    if (!head || list_empty(head))
         return;
-    struct list_head *node, *tmp;
-    tmp = head->next;
-    head->next = head->prev;
-    head->prev = tmp;
-    list_for_each (node, head) {
-        tmp = node->next;
-        node->next = node->prev;
-        node->prev = tmp;
+    struct list_head *node, *next;
+    list_for_each_safe (node, next, head) {
+        list_move_tail(node, head);
     }
 }
 
