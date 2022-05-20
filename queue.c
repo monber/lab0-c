@@ -31,12 +31,9 @@ void q_free(struct list_head *l)
 {
     if (!l)
         return;
-    struct list_head *cur = l->next;
-    while (cur != l) {
-        element_t *tmp = container_of(cur, element_t, list);
-        cur = cur->next;
-        q_release_element(tmp);
-    }
+    element_t *ptrE, *nextE;
+    list_for_each_entry_safe (ptrE, nextE, l, list)
+        q_release_element(ptrE);
     free(l);
 }
 /* Insert an element at head of queue */
@@ -188,10 +185,9 @@ void q_reverse(struct list_head *head)
 {
     if (!head || list_empty(head))
         return;
-    struct list_head *node, *next;
-    list_for_each_safe (node, next, head) {
-        list_move_tail(node, head);
-    }
+    struct list_head *ptrL, *nextL;
+    list_for_each_safe (ptrL, nextL, head)
+        list_move(ptrL, head);
 }
 
 static struct list_head *merge(struct list_head *l1, struct list_head *l2)
@@ -210,10 +206,10 @@ static struct list_head *merge(struct list_head *l1, struct list_head *l2)
             E2 = container_of(l2, element_t, list);
         }
     }
-    if (l1)
-        *cur = l1;
-    else
+    if (!l1)
         *cur = l2;
+    else
+        *cur = l1;
     return ret;
 }
 
@@ -249,8 +245,9 @@ static void mergefinal(struct list_head *head, struct list_head *sortHead)
 /* Sort elements of queue in ascending order */
 void q_sort(struct list_head *head)
 {
-    if (!head || head->next == head)
+    if (!head || list_empty(head))
         return;
+    // transform doubly list into singly list
     struct list_head *headL = head->next;
     head->prev->next = NULL;
     headL = mergesort(headL);
