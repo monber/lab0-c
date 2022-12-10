@@ -808,6 +808,64 @@ static bool do_show(int argc, char *argv[])
     return show_queue(0);
 }
 
+static void q_switch_2_element(struct list_head *head, int i, int j)
+{
+    if (!head || list_empty(head) || i == j)
+        return;
+    struct list_head *head1, *head2, *head3;
+    head1 = NULL;
+    head2 = NULL;
+    int size = i > j ? i : j;
+    for (int a = 0; a <= size; a++) {
+        if (a == i) {
+            head1 = head;
+        } else if (a == j) {
+            head2 = head;
+        }
+        head = head->next;
+    }
+    head3 = head2->prev;
+    list_move(head2, head1->prev);
+    list_move(head1, head3);
+}
+
+static bool q_shuffle(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return false;
+    int size;
+    size = q_size(head);
+    if (size == 1)
+        return true;
+
+    srand(time(NULL));
+    for (int i = size - 1; i > 0; i++) {
+        int rand_num = rand() % i;
+        q_switch_2_element(head->next, rand_num, i);
+    }
+    return true;
+}
+
+static bool do_shuffle(int argc, char *argv[])
+{
+    if (argc != 1) {
+        report(1, "%s takes no arguments", argv[0]);
+        return false;
+    }
+    //
+    if (!l_meta.l)
+        report(3, "Warning: Try to access null queue");
+    error_check();
+
+    bool ok = true;
+    if (exception_setup(true))
+        ok = q_shuffle(l_meta.l);
+    exception_cancel();
+
+    return ok && !error_check();
+    //
+}
+
 static void console_init()
 {
     ADD_COMMAND(new, "                | Create new queue");
@@ -841,6 +899,7 @@ static void console_init()
         dedup, "                | Delete all nodes that have duplicate string");
     ADD_COMMAND(swap,
                 "                | Swap every two adjacent nodes in queue");
+    ADD_COMMAND(shuffle, "                | Do Fisher Yates Shuffle in queue");
     add_param("length", &string_length, "Maximum length of displayed string",
               NULL);
     add_param("malloc", &fail_probability, "Malloc failure probability percent",
